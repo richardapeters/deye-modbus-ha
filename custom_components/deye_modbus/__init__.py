@@ -5,6 +5,7 @@ import logging
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, CONF_HOST, CONF_PORT
+import homeassistant.helpers.config_validation as cv
 
 from .const import (
     DOMAIN, CONF_UNIT_ID, CONF_SCAN_INTERVAL, CONF_MODEL, DEFAULT_SCAN_SECONDS,
@@ -20,16 +21,15 @@ from .mapping import load_register_mapping
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.SELECT, Platform.NUMBER]
 
+# This integration is set up only via the UI config flow (no YAML config).
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 # Fields accepted by RegisterDef - anything else in the YAML is ignored.
 _REGISTER_FIELDS = {
     "name", "unique_id", "register_type", "address", "count", "scale", "offset",
     "unit_of_measurement", "device_class", "state_class", "signed", "word_order",
     "options", "mask", "icon", "enabled_default",
 }
-
-
-async def async_setup(hass, config):
-    return True
 
 
 def _ensure_uid(base: str | None, prefix: str, address: int) -> str:

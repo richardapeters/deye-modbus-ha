@@ -29,3 +29,8 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
+          # "brands" only applies to submission into the default HACS store
+          # (requires registering the domain in home-assistant/brands).
+          # This repo is installed as a HACS *custom repository*, so it is
+          # ignored here. Remove this line before submitting to the store.
+          ignore: brands
