@@ -40,6 +40,8 @@ class DeyeRegisterSensor(CoordinatorEntity[dict[str, Any]], SensorEntity):
         self._attr_device_info = build_device_info(entry)
         self._attr_native_unit_of_measurement = reg.unit_of_measurement
         self._attr_entity_registry_enabled_default = bool(reg.enabled_default)
+        if reg.precision is not None:
+            self._attr_suggested_display_precision = int(reg.precision)
         if reg.icon:
             self._attr_icon = reg.icon
         if reg.device_class:

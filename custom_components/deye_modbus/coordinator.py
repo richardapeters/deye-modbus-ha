@@ -45,6 +45,7 @@ class RegisterDef:
     mask: int | None = None                  # bitmask applied to raw before sign/scale
     icon: str | None = None
     enabled_default: bool = True             # entity_registry_enabled_default
+    precision: int | None = None             # suggested_display_precision (decimals)
 
 
 class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
