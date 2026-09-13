@@ -74,7 +74,7 @@ class DeyeModbusSelect(CoordinatorEntity[dict[str, Any]], SelectEntity):
     async def async_select_option(self, option: str) -> None:
         if option not in self._value_by_label:
             return
-        ok = await self._coordinator.write_single_register(self._address, self._value_by_label[option])
+        ok = await self._coordinator.write_entity_single_register(self._address, self._value_by_label[option])
         if ok:
             self._current_option = option
             self.async_write_ha_state()

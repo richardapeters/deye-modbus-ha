@@ -222,9 +222,47 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return False
 
     async def write_multiple_registers(self, address: int, values: list[int]) -> bool:
+        ok, _ = await self._write_multiple_registers_internal(address, values)
+        return ok
+
+    async def write_entity_single_register(self, address: int, value: int) -> bool:
+        wire = int(value) & 0xFFFF
+        _LOGGER.debug(
+            "Entity single-register write requested via FC16: address=%s value=%s",
+            address,
+            wire,
+        )
+        ok, detail = await self._write_multiple_registers_internal(
+            address,
+            [wire],
+            refresh_on_success=False,
+        )
+        if ok:
+            _LOGGER.debug(
+                "Entity single-register write via FC16 succeeded: address=%s value=%s response=%r",
+                address,
+                wire,
+                detail,
+            )
+            return True
+        _LOGGER.debug(
+            "Entity single-register write via FC16 failed: address=%s value=%s detail=%r",
+            address,
+            wire,
+            detail,
+        )
+        return False
+
+    async def _write_multiple_registers_internal(
+        self,
+        address: int,
+        values: list[int],
+        refresh_on_success: bool = True,
+    ) -> tuple[bool, Any]:
         a = self._addr(address)
         client = await self._ensure_client()
         vals = [int(v) & 0xFFFF for v in values]
+        last_error: Any = None
         for variant in (
             lambda: client.write_registers(a, vals, slave=self._unit_id),
             lambda: client.write_registers(a, vals, self._unit_id),
@@ -232,16 +270,20 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lambda: client.write_registers(a, vals),
         ):
             try:
-                rr = await variant()
-                if getattr(rr, "isError", lambda: False)():
-                    continue
-                await self.async_request_refresh()
-                return True
+                call = variant()
             except TypeError:
                 continue
-            except Exception:  # noqa: BLE001
-                return False
-        return False
+            try:
+                rr = await call
+                if getattr(rr, "isError", lambda: False)():
+                    last_error = rr
+                    continue
+                if refresh_on_success:
+                    await self.async_request_refresh()
+                return True, rr
+            except Exception as err:  # noqa: BLE001
+                return False, err
+        return False, last_error
 
     async def write_u32(self, base_address: int, value: int, word_order: str = "high_low") -> bool:
         v = int(value) & 0xFFFFFFFF
