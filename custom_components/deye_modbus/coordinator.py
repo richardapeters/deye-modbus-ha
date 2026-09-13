@@ -235,9 +235,7 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ok, detail = await self._write_multiple_registers_internal(
             address,
             [wire],
-            log_fc16_single=True,
             refresh_on_success=False,
-            continue_on_exception=True,
         )
         if ok:
             _LOGGER.debug(
@@ -259,9 +257,7 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         address: int,
         values: list[int],
-        log_fc16_single: bool = False,
         refresh_on_success: bool = True,
-        continue_on_exception: bool = False,
     ) -> tuple[bool, Any]:
         a = self._addr(address)
         client = await self._ensure_client()
@@ -274,33 +270,18 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lambda: client.write_registers(a, vals),
         ):
             try:
-                rr = await variant()
+                call = variant()
+            except TypeError:
+                continue
+            try:
+                rr = await call
                 if getattr(rr, "isError", lambda: False)():
                     last_error = rr
-                    if log_fc16_single:
-                        _LOGGER.debug(
-                            "Entity single-register FC16 write Modbus error response: address=%s value=%s response=%r",
-                            address,
-                            vals[0] if vals else None,
-                            rr,
-                        )
                     continue
                 if refresh_on_success:
                     await self.async_request_refresh()
                 return True, rr
-            except TypeError:
-                continue
             except Exception as err:  # noqa: BLE001
-                if log_fc16_single:
-                    _LOGGER.debug(
-                        "Entity single-register FC16 write exception: address=%s value=%s",
-                        address,
-                        vals[0] if vals else None,
-                        exc_info=True,
-                    )
-                if continue_on_exception:
-                    last_error = err
-                    continue
                 return False, err
         return False, last_error
 
