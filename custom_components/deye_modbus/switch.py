@@ -74,7 +74,7 @@ class DeyeModbusSwitch(CoordinatorEntity[dict[str, Any]], SwitchEntity):
         if self._register_type == "coil":
             ok = await self._coordinator.write_coil(self._address, value)
         else:
-            ok = await self._coordinator.write_single_register(self._address, value)
+            ok = await self._coordinator.write_entity_single_register(self._address, value)
         if ok:
             await self._coordinator.async_request_refresh()
         return ok

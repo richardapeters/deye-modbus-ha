@@ -76,7 +76,7 @@ class DeyeModbusNumber(CoordinatorEntity[dict[str, Any]], NumberEntity):
         raw = int(round(v * self._write_factor))
         if self._signed and raw < 0:
             raw &= 0xFFFF
-        ok = await self._coordinator.write_single_register(self._address, raw)
+        ok = await self._coordinator.write_entity_single_register(self._address, raw)
         if ok:
             self._value = v
             self.async_write_ha_state()

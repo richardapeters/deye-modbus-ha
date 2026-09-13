@@ -222,9 +222,43 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return False
 
     async def write_multiple_registers(self, address: int, values: list[int]) -> bool:
+        ok, _ = await self._write_multiple_registers_internal(address, values)
+        return ok
+
+    async def write_entity_single_register(self, address: int, value: int) -> bool:
+        wire = int(value) & 0xFFFF
+        _LOGGER.debug(
+            "Entity single-register write requested via FC16: address=%s value=%s",
+            address,
+            wire,
+        )
+        ok, detail = await self._write_multiple_registers_internal(address, [wire], log_fc16_single=True)
+        if ok:
+            _LOGGER.debug(
+                "Entity single-register write via FC16 succeeded: address=%s value=%s response=%r",
+                address,
+                wire,
+                detail,
+            )
+            return True
+        _LOGGER.debug(
+            "Entity single-register write via FC16 failed: address=%s value=%s detail=%r",
+            address,
+            wire,
+            detail,
+        )
+        return False
+
+    async def _write_multiple_registers_internal(
+        self,
+        address: int,
+        values: list[int],
+        log_fc16_single: bool = False,
+    ) -> tuple[bool, Any]:
         a = self._addr(address)
         client = await self._ensure_client()
         vals = [int(v) & 0xFFFF for v in values]
+        last_error: Any = None
         for variant in (
             lambda: client.write_registers(a, vals, slave=self._unit_id),
             lambda: client.write_registers(a, vals, self._unit_id),
@@ -234,14 +268,29 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             try:
                 rr = await variant()
                 if getattr(rr, "isError", lambda: False)():
+                    last_error = rr
+                    if log_fc16_single:
+                        _LOGGER.debug(
+                            "Entity single-register FC16 write Modbus error response: address=%s value=%s response=%r",
+                            address,
+                            vals[0] if vals else None,
+                            rr,
+                        )
                     continue
                 await self.async_request_refresh()
-                return True
+                return True, rr
             except TypeError:
                 continue
-            except Exception:  # noqa: BLE001
-                return False
-        return False
+            except Exception as err:  # noqa: BLE001
+                if log_fc16_single:
+                    _LOGGER.debug(
+                        "Entity single-register FC16 write exception: address=%s value=%s",
+                        address,
+                        vals[0] if vals else None,
+                        exc_info=True,
+                    )
+                return False, err
+        return False, last_error
 
     async def write_u32(self, base_address: int, value: int, word_order: str = "high_low") -> bool:
         v = int(value) & 0xFFFFFFFF
