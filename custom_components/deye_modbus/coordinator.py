@@ -232,7 +232,13 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             address,
             wire,
         )
-        ok, detail = await self._write_multiple_registers_internal(address, [wire], log_fc16_single=True)
+        ok, detail = await self._write_multiple_registers_internal(
+            address,
+            [wire],
+            log_fc16_single=True,
+            refresh_on_success=False,
+            continue_on_exception=True,
+        )
         if ok:
             _LOGGER.debug(
                 "Entity single-register write via FC16 succeeded: address=%s value=%s response=%r",
@@ -254,6 +260,8 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         address: int,
         values: list[int],
         log_fc16_single: bool = False,
+        refresh_on_success: bool = True,
+        continue_on_exception: bool = False,
     ) -> tuple[bool, Any]:
         a = self._addr(address)
         client = await self._ensure_client()
@@ -277,7 +285,8 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             rr,
                         )
                     continue
-                await self.async_request_refresh()
+                if refresh_on_success:
+                    await self.async_request_refresh()
                 return True, rr
             except TypeError:
                 continue
@@ -289,6 +298,9 @@ class DeyeModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         vals[0] if vals else None,
                         exc_info=True,
                     )
+                if continue_on_exception:
+                    last_error = err
+                    continue
                 return False, err
         return False, last_error
 
